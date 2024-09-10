@@ -54,7 +54,7 @@ type FileRequest struct {
 
 type GrepRequest struct {
 	Filename string
-	Pattern  string
+	Command  string
 }
 
 func (fs *FileServer) CreateFile(req FileRequest, reply *string) error {
@@ -67,7 +67,7 @@ func (fs *FileServer) CreateFile(req FileRequest, reply *string) error {
 }
 
 func (fs *FileServer) GrepFile(req GrepRequest, reply *string) error {
-	cmd := exec.Command("grep", req.Pattern, req.Filename)
+	cmd := exec.Command("grep", req.Command, req.Filename)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return err
