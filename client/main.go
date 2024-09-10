@@ -8,22 +8,14 @@ import (
 	"net/http"
 	"net/rpc"
 	"os"
+	"os/exec"
 	"strings"
+	"time"
 )
 
 // type Args struct {
 // 	Str string
 // }
-
-type FileRequest struct {
-	Filename string
-	Content  string
-}
-
-type GrepRequest struct {
-	Filename string
-	Pattern  string
-}
 
 //type StringArgument struct{}
 
@@ -53,7 +45,40 @@ type GrepRequest struct {
 // 	return nil
 // }
 
+type FileServer struct{}
+
+type FileRequest struct {
+	Filename string
+	Content  string
+}
+
+type GrepRequest struct {
+	Filename string
+	Pattern  string
+}
+
+func (fs *FileServer) CreateFile(req FileRequest, reply *string) error {
+	err := os.WriteFile(req.Filename, []byte(req.Content), 0644)
+	if err != nil {
+		return err
+	}
+	*reply = "File created successfully"
+	return nil
+}
+
+func (fs *FileServer) GrepFile(req GrepRequest, reply *string) error {
+	cmd := exec.Command("grep", req.Pattern, req.Filename)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return err
+	}
+	*reply = string(output)
+	return nil
+}
+
 func main() {
+	fileServer := new(FileServer)
+	rpc.Register(fileServer)
 
 	go func() {
 		l, e := net.Listen("tcp", ":2232")
@@ -63,31 +88,33 @@ func main() {
 		http.Serve(l, nil)
 	}()
 
+	filename := "test.txt"
+	content := "Hello you beautiful human beings from the server"
+
+	// Create file on the server
+	time.Sleep(1 * time.Second)
+	client, err := rpc.Dial("tcp", "localhost:2233")
+	if err != nil {
+		log.Fatal("dialing:", err)
+	}
+	defer client.Close()
+	createReq := FileRequest{Filename: filename, Content: content}
+	var createReply string
+	err = client.Call("FileServer.CreateFile", createReq, &createReply)
+	if err != nil {
+		fmt.Println("Error creating file:", err)
+		return
+	}
+	fmt.Println(createReply)
+
 	reader := bufio.NewReader(os.Stdin)
 	for {
 		input, _ := reader.ReadString('\n')
 		input = strings.TrimSpace(input)
 		if input != "" {
-			client, err := rpc.Dial("tcp", "localhost:2233")
-			if err != nil {
-				log.Fatal("dialing:", err)
-			}
-			defer client.Close()
-			filename := "test.txt"
-			content := "Hello you beautiful human beings from the server"
-
-			// Create file on the server
-			createReq := FileRequest{Filename: filename, Content: content}
-			var createReply string
-			err = client.Call("FileServer.CreateFile", createReq, &createReply)
-			if err != nil {
-				fmt.Println("Error creating file:", err)
-				return
-			}
-			fmt.Println(createReply)
 
 			// Run grep command on the server
-			grepReq := GrepRequest{Filename: filename, Pattern: "Hello"}
+			grepReq := GrepRequest{Filename: filename, Pattern: input}
 			var grepReply string
 			err = client.Call("FileServer.GrepFile", grepReq, &grepReply)
 			if err != nil {

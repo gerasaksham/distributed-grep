@@ -2,10 +2,16 @@ package main
 
 import (
 	//"bufio"
+	"bufio"
 	"fmt"
+	"log"
+	"strings"
+	"time"
+
 	//"log"
 	"net"
 	//"net/http"
+	"net/http"
 	"net/rpc"
 	"os"
 	"os/exec"
@@ -78,17 +84,52 @@ func (fs *FileServer) GrepFile(req GrepRequest, reply *string) error {
 // }
 
 func main() {
-
 	fileServer := new(FileServer)
 	rpc.Register(fileServer)
-
-	listener, err := net.Listen("tcp", ":2233") // Use port 0 to get a random available port
+	rpc.HandleHTTP()
+	go func() {
+		l, e := net.Listen("tcp", ":2233")
+		if e != nil {
+			log.Fatal("listen error:", e)
+		}
+		http.Serve(l, nil)
+	}()
+	// add a timeout here to give the server time to start
+	time.Sleep(1 * time.Second)
+	client, err := rpc.Dial("tcp", "localhost:2232")
 	if err != nil {
-		fmt.Println("Error starting server:", err)
+		log.Fatal("dialing:", err)
+	}
+	defer client.Close()
+	filename := "test.txt"
+	content := "Hello you beautiful human beings from the server"
+
+	// Create file on the server
+	createReq := FileRequest{Filename: filename, Content: content}
+	var createReply string
+	err = client.Call("FileServer.CreateFile", createReq, &createReply)
+	if err != nil {
+		fmt.Println("Error creating file:", err)
 		return
 	}
-	defer listener.Close()
+	fmt.Println(createReply)
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+		if input != "" {
 
-	fmt.Printf("Server is running on %s\n", listener.Addr().String())
-	rpc.Accept(listener)
+			// Run grep command on the server
+			grepReq := GrepRequest{Filename: filename, Pattern: input}
+			var grepReply string
+			err = client.Call("FileServer.GrepFile", grepReq, &grepReply)
+			if err != nil {
+				fmt.Println("Error running grep:", err)
+				return
+			}
+
+			fmt.Println("Grep result from client:")
+			fmt.Println(grepReply)
+		}
+	}
 }
