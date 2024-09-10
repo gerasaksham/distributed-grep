@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -40,11 +41,24 @@ func (fs *FileServer) GrepFile(req GrepRequest, reply *string) error {
 	return nil
 }
 
+// write a function that counts the number of lines in a string
+func CountLines(s string) int {
+	count := 0
+	for _, c := range s {
+		if c == '\n' {
+			count++
+		}
+	}
+	return count
+}
+
 func main() {
 	var ans string
 	fileServer := new(FileServer)
 	req := GrepRequest{Filename: "test.txt", Pattern: "Hello", Flag: "-i"}
 	fileServer.GrepFile(req, &ans)
+	lines := CountLines(ans)
+	ans = fmt.Sprintf("The number of lines in the file is: %d\n The Lines are:\n%s", lines, ans)
 	print(ans)
 
 	// rpc.Register(fileServer)
