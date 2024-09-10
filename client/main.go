@@ -46,6 +46,17 @@ func (fs *FileServer) GrepFile(req *GrepRequest, reply *string) error {
 	return nil
 }
 
+// write a function that counts the number of lines in a string
+func CountLines(s string) int {
+	count := 0
+	for _, c := range s {
+		if c == '\n' {
+			count++
+		}
+	}
+	return count
+}
+
 func main() {
 	var fileServer FileServer
 	rpc.Register(&fileServer)
