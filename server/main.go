@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"log"
 	"math"
@@ -36,14 +37,39 @@ type GrepRequest struct {
 // 	return nil
 // }
 
-func (fs *FileServer) GrepFile(req *GrepRequest, reply *string) error {
-	cmd2 := exec.Command("grep", req.Flag, req.Pattern, req.Filename)
-	out, err := cmd2.Output()
-	if err != nil {
-		log.Println("GrepFile error:", err)
+func (fs *FileServer) GrepFile(req *string, reply *string) error {
+	inputSplit := strings.Split(*req, " ")
+	if inputSplit[0] != "grep" {
+		return errors.New("non-grep command not supported")
+	} else {
+		args := inputSplit[1:]
+		cmd := exec.Command("grep", args...)
+		out, err := cmd.CombinedOutput()
+		*reply = string(out)
+		if err != nil {
+			if exitErr, ok := err.(*exec.ExitError); ok {
+				switch exitErr.ExitCode() {
+				case 1:
+					return nil
+				default:
+					return fmt.Errorf("grep exited with status %d: %s", exitErr.ExitCode(), *reply)
+				}
+			}
+			return fmt.Errorf("error executing grep: %v", err)
+		}
+		return nil
 	}
-	*reply = string(out)
-	return nil
+}
+
+// write a function that counts the number of lines in a string
+func CountLines(s string) int {
+	count := 0
+	for _, c := range s {
+		if c == '\n' {
+			count++
+		}
+	}
+	return count
 }
 
 func main() {
@@ -90,24 +116,11 @@ func main() {
 	for {
 		input, _ := reader.ReadString('\n')
 		input = strings.TrimSpace(input)
-		fmt.Println("Input:", input)
 		if input != "" {
-			input_split := strings.Split(input, " ")
-			grepCommand := input_split[0]
-			flag := input_split[1]
-			pattern := input_split[2]
-			filename := input_split[3]
-			if grepCommand != "grep" {
-				fmt.Println("Invalid command")
-				continue
-			}
-
-			grepReq := GrepRequest{Filename: filename, Pattern: pattern, Flag: flag}
 			var grepReply string
-			err = client.Call("FileServer.GrepFile", &grepReq, &grepReply)
+			err = client.Call("FileServer.GrepFile", &input, &grepReply)
 			if err != nil {
-				fmt.Println("Error running grep:", err)
-				return
+				fmt.Println(err)
 			}
 			fmt.Println(grepReply)
 		}
