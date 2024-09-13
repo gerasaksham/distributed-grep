@@ -6,9 +6,8 @@ import (
 	"fmt"
 	"log"
 	"math"
-
-	//"net"
-	//"net/http"
+	"net"
+	"net/http"
 	"net/rpc"
 	"os"
 	"os/exec"
@@ -54,16 +53,6 @@ func (fs *FileServer) GrepFile(req *string, reply *string) error {
 	}
 }
 
-func CountLines(s string) int {
-	count := 0
-	for _, c := range s {
-		if c == '\n' {
-			count++
-		}
-	}
-	return count
-}
-
 func connectAndGrep(serverAddr string, input string, results chan<- string, wg *sync.WaitGroup) {
 	defer wg.Done()
 
@@ -100,47 +89,71 @@ func connectAndGrep(serverAddr string, input string, results chan<- string, wg *
 	results <- fmt.Sprintf("Server: %s\n%s", serverAddr, grepReply)
 }
 
-func main() {
-	// Example list of servers
+func (fs *FileServer) GrepMultipleServers(req *string, reply *string) error {
+	// List of other servers to send grep requests
 	servers := []string{
-		"localhost:2232", // First server address
-		"localhost:2233",
-		"localhost:2234",
-		"localhost:2235", // Second server address
-		// Add more server addresses as needed
+		"localhost:2232", // Second server address
+		//"localhost:2234", // Third server address
 	}
 
+	// Channel to collect results from all servers
+	results := make(chan string, len(servers))
+
+	// WaitGroup to synchronize goroutines
+	var wg sync.WaitGroup
+
+	// Spawn a goroutine for each server
+	for _, serverAddr := range servers {
+		wg.Add(1)
+		go connectAndGrep(serverAddr, *req, results, &wg)
+	}
+
+	// Wait for all goroutines to finish
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// Collect results from all servers
+	var finalOutput strings.Builder
+	for result := range results {
+		finalOutput.WriteString(result + "\n")
+	}
+
+	*reply = finalOutput.String()
+	return nil
+}
+
+func main() {
+	var fileServer FileServer
+	rpc.Register(&fileServer)
+	rpc.HandleHTTP()
+
+	// Run the main server on localhost:2232
+	go func() {
+		l, e := net.Listen("tcp", ":2233")
+		if e != nil {
+			log.Fatal("listen error:", e)
+		}
+		http.Serve(l, nil)
+	}()
+
+	// Wait for the user to input commands
 	reader := bufio.NewReader(os.Stdin)
 	for {
 		fmt.Print("Enter grep command: ")
 		input, _ := reader.ReadString('\n')
 		input = strings.TrimSpace(input)
-		if input == "" {
-			continue
-		}
+		if input != "" {
+			var grepReply string
 
-		// Channel to collect results from all servers
-		results := make(chan string, len(servers))
-
-		// WaitGroup to synchronize goroutines
-		var wg sync.WaitGroup
-
-		// Spawn a goroutine for each server
-		for _, serverAddr := range servers {
-			wg.Add(1)
-			go connectAndGrep(serverAddr, input, results, &wg)
-		}
-
-		// Wait for all goroutines to finish
-		go func() {
-			wg.Wait()
-			close(results)
-		}()
-
-		// Collect and print results from all servers
-		for result := range results {
-
-			fmt.Println(result)
+			// Call the GrepMultipleServers function to dispatch requests to other servers
+			err := fileServer.GrepMultipleServers(&input, &grepReply)
+			if err != nil {
+				fmt.Println("Error:", err)
+			} else {
+				fmt.Println(grepReply)
+			}
 		}
 	}
 }

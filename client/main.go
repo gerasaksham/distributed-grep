@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -28,15 +29,6 @@ type GrepRequest struct {
 	Flag     string
 }
 
-// func (fs *FileServer) CreateFile(req FileRequest, reply *string) error {
-// 	err := os.WriteFile(req.Filename, []byte(req.Content), 0644)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	*reply = "File created successfully"
-// 	return nil
-// }
-
 func (fs *FileServer) GrepFile(req *string, reply *string) error {
 	inputSplit := strings.Split(*req, " ")
 	if inputSplit[0] != "grep" {
@@ -50,7 +42,7 @@ func (fs *FileServer) GrepFile(req *string, reply *string) error {
 			if exitErr, ok := err.(*exec.ExitError); ok {
 				switch exitErr.ExitCode() {
 				case 1:
-					return nil
+					return nil // grep command found no matches, which is not a fatal error
 				default:
 					return fmt.Errorf("grep exited with status %d: %s", exitErr.ExitCode(), *reply)
 				}
@@ -61,15 +53,75 @@ func (fs *FileServer) GrepFile(req *string, reply *string) error {
 	}
 }
 
-// write a function that counts the number of lines in a string
-func CountLines(s string) int {
-	count := 0
-	for _, c := range s {
-		if c == '\n' {
-			count++
+func connectAndGrep(serverAddr string, input string, results chan<- string, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	const maxRetries = 5
+	const initialDelay = 1 * time.Second
+
+	var client *rpc.Client
+	var err error
+
+	// Retry mechanism to connect to the server
+	for i := 0; i < maxRetries; i++ {
+		client, err = rpc.DialHTTP("tcp", serverAddr)
+		if err == nil {
+			break
 		}
+		log.Printf("dialing to server %s failed: %v; retrying in %v", serverAddr, err, initialDelay)
+		time.Sleep(time.Duration(math.Pow(2, float64(i))) * initialDelay)
 	}
-	return count
+
+	if err != nil {
+		results <- fmt.Sprintf("Failed to connect to server %s after retries: %v", serverAddr, err)
+		return
+	}
+	defer client.Close()
+
+	// Perform the grep command on the server
+	var grepReply string
+	err = client.Call("FileServer.GrepFile", &input, &grepReply)
+	if err != nil {
+		results <- fmt.Sprintf("Error executing grep on server %s: %v", serverAddr, err)
+		return
+	}
+
+	results <- fmt.Sprintf("Server: %s\n%s", serverAddr, grepReply)
+}
+
+func (fs *FileServer) GrepMultipleServers(req *string, reply *string) error {
+	// List of other servers to send grep requests
+	servers := []string{
+		"localhost:2233", // Second server address
+		//"localhost:2234", // Third server address
+	}
+
+	// Channel to collect results from all servers
+	results := make(chan string, len(servers))
+
+	// WaitGroup to synchronize goroutines
+	var wg sync.WaitGroup
+
+	// Spawn a goroutine for each server
+	for _, serverAddr := range servers {
+		wg.Add(1)
+		go connectAndGrep(serverAddr, *req, results, &wg)
+	}
+
+	// Wait for all goroutines to finish
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// Collect results from all servers
+	var finalOutput strings.Builder
+	for result := range results {
+		finalOutput.WriteString(result + "\n")
+	}
+
+	*reply = finalOutput.String()
+	return nil
 }
 
 func main() {
@@ -77,6 +129,7 @@ func main() {
 	rpc.Register(&fileServer)
 	rpc.HandleHTTP()
 
+	// Run the main server on localhost:2232
 	go func() {
 		l, e := net.Listen("tcp", ":2232")
 		if e != nil {
@@ -85,44 +138,22 @@ func main() {
 		http.Serve(l, nil)
 	}()
 
-	// filename := "test.txt"
-	// content := "Hello you beautiful human beings from the server"
-
-	// Create file on the server
-	// time.Sleep(1 * time.Second)
-
-	const maxRetries = 5
-	const initialDelay = 1 * time.Second
-
-	var client *rpc.Client
-	var err error
-
-	for i := 0; i < maxRetries; i++ {
-		client, err = rpc.DialHTTP("tcp", "localhost:2233")
-		if err == nil {
-			break
-		}
-
-		log.Printf("dialing failed: %v; retrying in %v", err, initialDelay)
-		time.Sleep(time.Duration(math.Pow(2, float64(i))) * initialDelay)
-	}
-
-	if err != nil {
-		log.Fatal("dialing failed after retries:", err)
-	}
-	// defer client.Close()
-
+	// Wait for the user to input commands
 	reader := bufio.NewReader(os.Stdin)
 	for {
+		fmt.Print("Enter grep command: ")
 		input, _ := reader.ReadString('\n')
 		input = strings.TrimSpace(input)
 		if input != "" {
 			var grepReply string
-			err = client.Call("FileServer.GrepFile", &input, &grepReply)
+
+			// Call the GrepMultipleServers function to dispatch requests to other servers
+			err := fileServer.GrepMultipleServers(&input, &grepReply)
 			if err != nil {
-				fmt.Println(err)
+				fmt.Println("Error:", err)
+			} else {
+				fmt.Println(grepReply)
 			}
-			fmt.Println(grepReply)
 		}
 	}
 }
