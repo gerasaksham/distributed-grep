@@ -93,7 +93,7 @@ func (fs *FileServer) GrepMultipleServers(req *string, reply *string) error {
 	// List of other servers to send grep requests
 	servers := []string{
 		"localhost:2233", // Second server address
-		//"localhost:2234", // Third server address
+		"localhost:2232", // Third server address
 	}
 
 	// Channel to collect results from all servers
