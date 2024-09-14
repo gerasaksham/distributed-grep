@@ -44,6 +44,28 @@ func countLines(content string) int {
 // 	return logFiles, nil
 // }
 
+func (fs *FileServer) WriteFile(req *FileRequest, reply *string) error {
+	file, err := os.Create(req.Filename)
+	if err != nil {
+		return fmt.Errorf("error creating file: %v", err)
+	}
+	defer file.Close()
+
+	_, err = file.WriteString(req.Content)
+	if err != nil {
+		return fmt.Errorf("error writing to file: %v", err)
+	}
+	return nil
+}
+
+func (fs *FileServer) DeleteFile(req *string, reply *string) error {
+	err := os.Remove(*req)
+	if err != nil {
+		return fmt.Errorf("error deleting file: %v", err)
+	}
+	return nil
+}
+
 func (fs *FileServer) GrepFile(req *string, reply *GrepReply) error {
 	inputSplit := strings.Split(*req, " ")
 	if inputSplit[0] != "grep" {
@@ -102,16 +124,11 @@ func connectAndGrep(serverAddr string, input string, results chan<- GrepReply, w
 	}
 }
 
-func (fs *FileServer) GrepMultipleServers(req *string, reply *string) error {
+func (fs *FileServer) GrepMultipleServers(req *string, filenameMap *map[string]string, reply *string) (error, int) {
 	// List of other servers to send grep requests
 	servers := []string{
 		"localhost:2232", // Second server address
 		"localhost:2233", // Third server address
-	}
-
-	filenameMap := map[string]string{
-		"localhost:2232": "vm2.log",
-		"localhost:2233": "vm1.log",
 	}
 
 	// Channel to collect results from all servers
@@ -123,7 +140,7 @@ func (fs *FileServer) GrepMultipleServers(req *string, reply *string) error {
 	// Spawn a goroutine for each server
 	for _, serverAddr := range servers {
 		wg.Add(1)
-		updatedReq := *req + " " + filenameMap[serverAddr]
+		updatedReq := *req + " " + (*filenameMap)[serverAddr]
 		go connectAndGrep(serverAddr, updatedReq, results, &wg)
 		// go connectAndGrep(serverAddr, *req, results, &wg)
 	}
@@ -144,7 +161,7 @@ func (fs *FileServer) GrepMultipleServers(req *string, reply *string) error {
 	finalOutput.WriteString(fmt.Sprintf("\nTotal number of matching lines: %d", totalLineCount))
 
 	*reply = finalOutput.String()
-	return nil
+	return nil, totalLineCount
 }
 
 func main() {
@@ -161,6 +178,11 @@ func main() {
 		http.Serve(l, nil)
 	}()
 
+	filenameMap := map[string]string{
+		"localhost:2232": "vm2.log",
+		"localhost:2233": "vm1.log",
+	}
+
 	// Wait for the user to input commands
 	reader := bufio.NewReader(os.Stdin)
 	for {
@@ -171,7 +193,7 @@ func main() {
 			var grepReply string
 
 			// Call the GrepMultipleServers function to dispatch requests to other servers
-			err := fileServer.GrepMultipleServers(&input, &grepReply)
+			err, _ := fileServer.GrepMultipleServers(&input, &filenameMap, &grepReply)
 			if err != nil {
 				fmt.Println("Error:", err)
 			} else {

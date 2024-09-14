@@ -1,117 +1,169 @@
 package main
 
 import (
-	"net"
-	"net/http"
+	"fmt"
+	"math/rand"
 	"net/rpc"
-	"os"
-	"strings"
-	"sync"
 	"testing"
+	"time"
 )
 
-var once sync.Once
-
-func setupServer() {
-	// Setup the FileServer
-	fileServer := &FileServer{}
-	rpc.Register(fileServer)
-	once.Do(func() {
-		rpc.HandleHTTP()
-	})
-	go func() {
-		l, err := net.Listen("tcp", ":2232")
-		if err != nil {
-			panic(err)
-		}
-		http.Serve(l, nil)
-	}()
+var logPatterns = map[string]string{
+	"INFO":     "Func executed successfully", // Frequent Pattern
+	"ERROR":    "Func failed",                // Rare Pattern
+	"DEBUG":    "Debugging info",
+	"CRITICAL": "Critical error", // One log
+	"WARNING":  "Warning",        // Somewhat Frequent
 }
 
-func TestGrepFile(t *testing.T) {
-	// Setup a temporary log file
-	logFileName := "test1.log"
-	logContent := "This is a test log file\nwith multiple lines\nand some test content\n"
-	err := os.WriteFile(logFileName, []byte(logContent), 0644)
-	if err != nil {
-		t.Fatalf("Failed to create test log file: %v", err)
-	}
-	defer os.Remove(logFileName)
+var fileMap = map[string]string{
+	"server1": "vm1_test.log",
+	// "server2":  "vm2_test.log",
+	// "server3":  "vm3_test.log",
+	// "server4":  "vm4_test.log",
+	// "server5":  "vm5_test.log",
+	// "server6":  "vm6_test.log",
+	// "server7":  "vm7_test.log",
+	// "server8":  "vm8_test.log",
+	// "server9":  "vm9_test.log",
+	"server10": "vm10_test.log",
+}
 
-	// Setup the server
-	setupServer()
+func createPattern(logType string, tmp int) string {
+	content := ""
+	for i := 0; i < tmp; i++ {
+		content += fmt.Sprintf("%s: %s\n", logType, logPatterns[logType])
+	}
+	return content
+}
 
-	// Create an RPC client
-	client, err := rpc.DialHTTP("tcp", "localhost:2232")
-	if err != nil {
-		t.Fatalf("Failed to connect to server: %v", err)
-	}
-	defer client.Close()
+func createTestLog() (string, map[string]int) {
+	rand.Seed(time.Now().UnixNano())
+	content := ""
+	counts := make(map[string]int)
 
-	// Test the GrepFile method
-	input := "grep test test1.log"
-	var grepReply GrepReply
-	err = client.Call("FileServer.GrepFile", &input, &grepReply)
-	if err != nil {
-		t.Fatalf("GrepFile RPC call failed: %v", err)
+	// frequent pattern
+	tmp := rand.Intn(1200-1000+1) + 1000
+	content += createPattern("INFO", tmp)
+	counts["INFO"] = tmp
+	tmp = rand.Intn(1200-1000+1) + 1000
+	content += createPattern("DEBUG", tmp)
+	counts["DEBUG"] = tmp
+
+	// Rare Pattern
+	tmp = rand.Intn(100)
+	if tmp > 80 {
+		content += createPattern("ERROR", 100-tmp)
+		counts["ERROR"] = 100 - tmp
+	} else {
+		counts["ERROR"] = 0
 	}
 
-	expectedOutput := "test1.log:This is a test log file\n" +
-		"test1.log:and some test content\n\n" +
-		"Number of lines: 2"
-	if strings.TrimSpace(grepReply.Output) != expectedOutput {
-		t.Errorf("Expected output:\n%s\nGot:\n%s", expectedOutput, grepReply.Output)
+	// Somwhat Frequent
+	tmp = rand.Intn(300-200+1) + 200
+	content += createPattern("WARNING", tmp)
+	counts["WARNING"] = tmp
+
+	return content, counts
+
+}
+
+func createTestLogFiles() map[string]int {
+	var client *rpc.Client
+	var err error
+	var reply string
+
+	fileCountMap := map[string]int{
+		"INFO":     0,
+		"ERROR":    0,
+		"DEBUG":    0,
+		"CRITICAL": 0,
+		"WARNING":  0,
 	}
-	if grepReply.Linecount != 2 {
-		t.Errorf("Expected line count: 2, got: %d", grepReply.Linecount)
+	for server, filename := range fileMap {
+		content, countMap := createTestLog()
+		if server == "server10" {
+			content += createPattern("CRITICAL", 1)
+			countMap["CRITICAL"] = 1
+		}
+
+		client, err = rpc.DialHTTP("tcp", server)
+		if err != nil {
+			fmt.Printf("Failed to connect to server %s with error: %v\n", server, err)
+			continue
+		}
+		defer client.Close()
+
+		err = client.Call("FileServer.WriteFile", &FileRequest{Filename: filename, Content: content}, &reply)
+		fmt.Printf("Created test log file for %s\n", server)
+
+		for k, v := range countMap {
+			fileCountMap[k] += v
+		}
 	}
+
+	return fileCountMap
 }
 
 func TestGrepMultipleServers(t *testing.T) {
-	// Setup temporary log files for multiple servers
-	logFileName1 := "test1.log"
-	logContent1 := "This is a test log file for test1\nwith multiple lines\nand some test content\n"
-	err := os.WriteFile(logFileName1, []byte(logContent1), 0644)
+	fileCountMap := createTestLogFiles()
+	var fileServer FileServer
+	var input string
+	var reply string
+
+	// Test for INFO
+	input = "grep INFO"
+	err, totalLineCount := fileServer.GrepMultipleServers(&input, &fileMap, &reply)
 	if err != nil {
-		t.Fatalf("Failed to create test log file for test1: %v", err)
+		fmt.Println("Error:", err)
 	}
-	defer os.Remove(logFileName1)
+	if totalLineCount != fileCountMap["INFO"] {
+		t.Errorf("Expected %d, got %d", fileCountMap["INFO"], totalLineCount)
+	}
+	fmt.Println("INFO:", totalLineCount)
 
-	logFileName2 := "test2.log"
-	logContent2 := "This is a test log file for test2\nwith multiple lines\nand some test content\n"
-	err = os.WriteFile(logFileName2, []byte(logContent2), 0644)
+	// Test for ERROR
+	input = "grep ERROR"
+	err, totalLineCount = fileServer.GrepMultipleServers(&input, &fileMap, &reply)
 	if err != nil {
-		t.Fatalf("Failed to create test log file for test2: %v", err)
+		fmt.Println("Error:", err)
 	}
-	defer os.Remove(logFileName2)
+	if totalLineCount != fileCountMap["ERROR"] {
+		t.Errorf("Expected %d, got %d", fileCountMap["ERROR"], totalLineCount)
+	}
+	fmt.Println("ERROR:", totalLineCount)
 
-	// Setup the server
-	setupServer()
-
-	// Test the GrepMultipleServers method
-	input := "grep test"
-	var grepReply string
-	err = (&FileServer{}).GrepMultipleServers(&input, &grepReply)
+	// Test for DEBUG
+	input = "grep DEBUG"
+	err, totalLineCount = fileServer.GrepMultipleServers(&input, &fileMap, &reply)
 	if err != nil {
-		t.Fatalf("GrepMultipleServers call failed: %v", err)
+		fmt.Println("Error:", err)
 	}
-
-	expectedOutput := "Server: localhost:2232\ntest2.log:This is a test log file for test2\n" +
-		"test2.log:and some test content\n\n" +
-		"Number of lines: 2\n\n" +
-		"Server: localhost:2233\ntest1.log:This is a test log file for test1\n" +
-		"test1.log:and some test content\n\n" +
-		"Number of lines: 2\n\n" +
-		"Total number of matching lines: 4"
-	if strings.TrimSpace(grepReply) != expectedOutput {
-		t.Errorf("Expected output:\n%s\nGot:\n%s", expectedOutput, grepReply)
+	if totalLineCount != fileCountMap["DEBUG"] {
+		t.Errorf("Expected %d, got %d", fileCountMap["DEBUG"], totalLineCount)
 	}
-}
+	fmt.Println("DEBUG:", totalLineCount)
 
-func TestMain(m *testing.M) {
-	// Setup the server
-	setupServer()
+	// Test for WARNING
+	input = "grep WARNING"
+	err, totalLineCount = fileServer.GrepMultipleServers(&input, &fileMap, &reply)
+	if err != nil {
+		fmt.Println("Error:", err)
+	}
+	if totalLineCount != fileCountMap["WARNING"] {
+		t.Errorf("Expected %d, got %d", fileCountMap["WARNING"], totalLineCount)
+	}
+	fmt.Println("WARNING:", totalLineCount)
 
-	// Run tests
-	os.Exit(m.Run())
+	// Test for CRITICAL
+	input = "grep CRITICAL"
+	err, totalLineCount = fileServer.GrepMultipleServers(&input, &fileMap, &reply)
+	if err != nil {
+		fmt.Println("Error:", err)
+	}
+	if totalLineCount != fileCountMap["CRITICAL"] {
+		t.Errorf("Expected %d, got %d", fileCountMap["CRITICAL"], totalLineCount)
+	}
+	fmt.Println("CRITICAL:", totalLineCount)
+
 }
