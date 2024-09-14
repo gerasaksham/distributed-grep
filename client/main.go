@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"math"
 	"net"
 	"net/http"
 	"net/rpc"
@@ -13,7 +12,6 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
-	"time"
 )
 
 type FileServer struct{}
@@ -23,13 +21,16 @@ type FileRequest struct {
 	Content  string
 }
 
-type GrepRequest struct {
-	Filename string
-	Pattern  string
-	Flag     string
+type GrepReply struct {
+	Output    string
+	Linecount int
 }
 
-func (fs *FileServer) GrepFile(req *string, reply *string) error {
+func countLines(content string) int {
+	return strings.Count(content, "\n")
+}
+
+func (fs *FileServer) GrepFile(req *string, reply *GrepReply) error {
 	inputSplit := strings.Split(*req, " ")
 	if inputSplit[0] != "grep" {
 		return errors.New("non-grep command not supported")
@@ -37,67 +38,59 @@ func (fs *FileServer) GrepFile(req *string, reply *string) error {
 		args := inputSplit[1:]
 		cmd := exec.Command("grep", args...)
 		out, err := cmd.CombinedOutput()
-		*reply = string(out)
 		if err != nil {
 			if exitErr, ok := err.(*exec.ExitError); ok {
-				switch exitErr.ExitCode() {
-				case 1:
-					return nil // grep command found no matches, which is not a fatal error
-				default:
-					return fmt.Errorf("grep exited with status %d: %s", exitErr.ExitCode(), *reply)
+				if exitErr.ExitCode() == 1 {
+					return nil
+				} else {
+					return fmt.Errorf("grep exited with status %d: %s", exitErr.ExitCode(), string(out))
 				}
 			}
 			return fmt.Errorf("error executing grep: %v", err)
 		}
+		lineCount := countLines(string(out))
+		reply.Output = string(out) + "\nNumber of lines: " + fmt.Sprint(lineCount)
+		reply.Linecount = lineCount
 		return nil
 	}
 }
 
-func connectAndGrep(serverAddr string, input string, results chan<- string, wg *sync.WaitGroup) {
+func connectAndGrep(serverAddr string, input string, results chan<- GrepReply, wg *sync.WaitGroup) {
 	defer wg.Done()
-
-	const maxRetries = 5
-	const initialDelay = 1 * time.Second
 
 	var client *rpc.Client
 	var err error
-
-	// Retry mechanism to connect to the server
-	for i := 0; i < maxRetries; i++ {
-		client, err = rpc.DialHTTP("tcp", serverAddr)
-		if err == nil {
-			break
-		}
-		log.Printf("dialing to server %s failed: %v; retrying in %v", serverAddr, err, initialDelay)
-		time.Sleep(time.Duration(math.Pow(2, float64(i))) * initialDelay)
-	}
+	client, err = rpc.DialHTTP("tcp", serverAddr)
 
 	if err != nil {
-		results <- fmt.Sprintf("Failed to connect to server %s after retries: %v", serverAddr, err)
+		results <- GrepReply{Output: fmt.Sprintf("Failed to connect to server %s with error: %v", serverAddr, err)}
 		return
 	}
 	defer client.Close()
 
 	// Perform the grep command on the server
-	var grepReply string
+	var grepReply GrepReply
 	err = client.Call("FileServer.GrepFile", &input, &grepReply)
 	if err != nil {
-		results <- fmt.Sprintf("Error executing grep on server %s: %v", serverAddr, err)
+		results <- GrepReply{Output: fmt.Sprintf("Error executing grep on server %s: %v", serverAddr, err)}
 		return
 	}
 
-	results <- fmt.Sprintf("Server: %s\n%s", serverAddr, grepReply)
+	results <- GrepReply{
+		Output:    fmt.Sprintf("Server: %s\n%s", serverAddr, grepReply.Output),
+		Linecount: grepReply.Linecount,
+	}
 }
 
 func (fs *FileServer) GrepMultipleServers(req *string, reply *string) error {
 	// List of other servers to send grep requests
 	servers := []string{
-		"localhost:2233", // Second server address
-		"localhost:2232", // Third server address
+		"localhost:2232", // Second server address
+		"localhost:2233", // Third server address
 	}
 
 	// Channel to collect results from all servers
-	results := make(chan string, len(servers))
+	results := make(chan GrepReply, len(servers))
 
 	// WaitGroup to synchronize goroutines
 	var wg sync.WaitGroup
@@ -116,9 +109,12 @@ func (fs *FileServer) GrepMultipleServers(req *string, reply *string) error {
 
 	// Collect results from all servers
 	var finalOutput strings.Builder
+	totalLineCount := 0
 	for result := range results {
-		finalOutput.WriteString(result + "\n")
+		finalOutput.WriteString(result.Output + "\n")
+		totalLineCount += result.Linecount
 	}
+	finalOutput.WriteString(fmt.Sprintf("\nTotal number of matching lines: %d", totalLineCount))
 
 	*reply = finalOutput.String()
 	return nil
