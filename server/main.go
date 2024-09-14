@@ -10,7 +10,6 @@ import (
 	"net/rpc"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"sync"
 )
@@ -31,19 +30,19 @@ func countLines(content string) int {
 	return strings.Count(content, "\n")
 }
 
-func findLogFiles() ([]string, error) {
-	var logFiles []string
-	entries, err := os.ReadDir(".")
-	if err != nil {
-		return nil, err
-	}
-	for _, entry := range entries {
-		if !entry.IsDir() && filepath.Ext(entry.Name()) == ".log" {
-			logFiles = append(logFiles, entry.Name())
-		}
-	}
-	return logFiles, nil
-}
+// func findLogFiles() ([]string, error) {
+// 	var logFiles []string
+// 	entries, err := os.ReadDir(".")
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	for _, entry := range entries {
+// 		if !entry.IsDir() && filepath.Ext(entry.Name()) == ".log" {
+// 			logFiles = append(logFiles, entry.Name())
+// 		}
+// 	}
+// 	return logFiles, nil
+// }
 
 func (fs *FileServer) GrepFile(req *string, reply *GrepReply) error {
 	inputSplit := strings.Split(*req, " ")
@@ -51,12 +50,12 @@ func (fs *FileServer) GrepFile(req *string, reply *GrepReply) error {
 		return errors.New("non-grep command not supported")
 	} else {
 		args := inputSplit[1:]
-		fileNames, err := findLogFiles()
-		if err != nil {
-			return fmt.Errorf("error finding log files: %v", err)
-		}
+		// fileNames, err := findLogFiles()
+		// if err != nil {
+		// 	return fmt.Errorf("error finding log files: %v", err)
+		// }
 		args = append([]string{"-H"}, args...)
-		args = append(args, fileNames[0]) // Assuming there is only one log file in the folder.
+		// args = append(args, fileNames[0]) // Assuming there is only one log file in the folder.
 		cmd := exec.Command("grep", args...)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
@@ -110,10 +109,10 @@ func (fs *FileServer) GrepMultipleServers(req *string, reply *string) error {
 		"localhost:2233", // Third server address
 	}
 
-	// filenameMap := map[string]string{
-	// 	"localhost:2232": "vm1.log",
-	// 	"localhost:2233": "vm2.log",
-	// }
+	filenameMap := map[string]string{
+		"localhost:2232": "vm2.log",
+		"localhost:2233": "vm1.log",
+	}
 
 	// Channel to collect results from all servers
 	results := make(chan GrepReply, len(servers))
@@ -124,9 +123,9 @@ func (fs *FileServer) GrepMultipleServers(req *string, reply *string) error {
 	// Spawn a goroutine for each server
 	for _, serverAddr := range servers {
 		wg.Add(1)
-		// updatedReq := *req + " " + filenameMap[serverAddr]
-		// go connectAndGrep(serverAddr, updatedReq, results, &wg)
-		go connectAndGrep(serverAddr, *req, results, &wg)
+		updatedReq := *req + " " + filenameMap[serverAddr]
+		go connectAndGrep(serverAddr, updatedReq, results, &wg)
+		// go connectAndGrep(serverAddr, *req, results, &wg)
 	}
 
 	// Wait for all goroutines to finish

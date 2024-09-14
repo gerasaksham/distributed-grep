@@ -30,13 +30,32 @@ func countLines(content string) int {
 	return strings.Count(content, "\n")
 }
 
+// func findLogFiles() ([]string, error) {
+// 	var logFiles []string
+// 	entries, err := os.ReadDir(".")
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	for _, entry := range entries {
+// 		if !entry.IsDir() && filepath.Ext(entry.Name()) == ".log" {
+// 			logFiles = append(logFiles, entry.Name())
+// 		}
+// 	}
+// 	return logFiles, nil
+// }
+
 func (fs *FileServer) GrepFile(req *string, reply *GrepReply) error {
 	inputSplit := strings.Split(*req, " ")
 	if inputSplit[0] != "grep" {
 		return errors.New("non-grep command not supported")
 	} else {
 		args := inputSplit[1:]
+		// fileNames, err := findLogFiles()
+		// if err != nil {
+		// 	return fmt.Errorf("error finding log files: %v", err)
+		// }
 		args = append([]string{"-H"}, args...)
+		// args = append(args, fileNames[0]) // Assuming there is only one log file in the folder.
 		cmd := exec.Command("grep", args...)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
@@ -84,9 +103,15 @@ func connectAndGrep(serverAddr string, input string, results chan<- GrepReply, w
 }
 
 func (fs *FileServer) GrepMultipleServers(req *string, reply *string) error {
+	// List of other servers to send grep requests
 	servers := []string{
-		"localhost:2232",
-		"localhost:2233",
+		"localhost:2232", // Second server address
+		"localhost:2233", // Third server address
+	}
+
+	filenameMap := map[string]string{
+		"localhost:2232": "vm2.log",
+		"localhost:2233": "vm1.log",
 	}
 
 	// Channel to collect results from all servers
@@ -98,7 +123,9 @@ func (fs *FileServer) GrepMultipleServers(req *string, reply *string) error {
 	// Spawn a goroutine for each server
 	for _, serverAddr := range servers {
 		wg.Add(1)
-		go connectAndGrep(serverAddr, *req, results, &wg)
+		updatedReq := *req + " " + filenameMap[serverAddr]
+		go connectAndGrep(serverAddr, updatedReq, results, &wg)
+		// go connectAndGrep(serverAddr, *req, results, &wg)
 	}
 
 	// Wait for all goroutines to finish
