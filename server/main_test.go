@@ -166,4 +166,13 @@ func TestGrepMultipleServers(t *testing.T) {
 	}
 	fmt.Println("CRITICAL:", totalLineCount)
 
+	// Remove test log files
+	for server, filename := range fileMap {
+		err := fileServer.DeleteFile(&filename, &reply)
+		if err != nil {
+			fmt.Println("Error deleting file:", err)
+		}
+		fmt.Printf("Deleted test log file for %s\n", server)
+	}
+
 }
