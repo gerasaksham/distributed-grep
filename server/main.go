@@ -127,16 +127,16 @@ func connectAndGrep(serverAddr string, input string, results chan<- GrepReply, w
 func (fs *FileServer) GrepMultipleServers(req *string, filenameMap *map[string]string, reply *string) (error, int) {
 	// List of other servers to send grep requests
 	servers := []string{
-		"fa24-cs425-3101.cs.illinois.edu",
-		"fa24-cs425-3102.cs.illinois.edu",
-		"fa24-cs425-3103.cs.illinois.edu",
-		"fa24-cs425-3104.cs.illinois.edu",
-		"fa24-cs425-3105.cs.illinois.edu",
-		"fa24-cs425-3106.cs.illinois.edu",
-		"fa24-cs425-3107.cs.illinois.edu",
-		"fa24-cs425-3108.cs.illinois.edu",
-		"fa24-cs425-3109.cs.illinois.edu",
-		"fa24-cs425-3110.cs.illinois.edu",
+		"fa24-cs425-3101.cs.illinois.edu:2232",
+		"fa24-cs425-3102.cs.illinois.edu:2232",
+		"fa24-cs425-3103.cs.illinois.edu:2232",
+		"fa24-cs425-3104.cs.illinois.edu:2232",
+		"fa24-cs425-3105.cs.illinois.edu:2232",
+		"fa24-cs425-3106.cs.illinois.edu:2232",
+		"fa24-cs425-3107.cs.illinois.edu:2232",
+		"fa24-cs425-3108.cs.illinois.edu:2232",
+		"fa24-cs425-3109.cs.illinois.edu:2232",
+		"fa24-cs425-3110.cs.illinois.edu:2232",
 	}
 
 	// Channel to collect results from all servers
@@ -187,16 +187,16 @@ func main() {
 	}()
 
 	filenameMap := map[string]string{
-		"fa24-cs425-3101.cs.illinois.edu": "vm1.log",
-		"fa24-cs425-3102.cs.illinois.edu": "vm2.log",
-		"fa24-cs425-3103.cs.illinois.edu": "vm3.log",
-		"fa24-cs425-3104.cs.illinois.edu": "vm4.log",
-		"fa24-cs425-3105.cs.illinois.edu": "vm5.log",
-		"fa24-cs425-3106.cs.illinois.edu": "vm6.log",
-		"fa24-cs425-3107.cs.illinois.edu": "vm7.log",
-		"fa24-cs425-3108.cs.illinois.edu": "vm8.log",
-		"fa24-cs425-3109.cs.illinois.edu": "vm9.log",
-		"fa24-cs425-3110.cs.illinois.edu": "vm10.log",
+		"fa24-cs425-3101.cs.illinois.edu:2232": "vm1.log",
+		"fa24-cs425-3102.cs.illinois.edu:2232": "vm2.log",
+		"fa24-cs425-3103.cs.illinois.edu:2232": "vm3.log",
+		"fa24-cs425-3104.cs.illinois.edu:2232": "vm4.log",
+		"fa24-cs425-3105.cs.illinois.edu:2232": "vm5.log",
+		"fa24-cs425-3106.cs.illinois.edu:2232": "vm6.log",
+		"fa24-cs425-3107.cs.illinois.edu:2232": "vm7.log",
+		"fa24-cs425-3108.cs.illinois.edu:2232": "vm8.log",
+		"fa24-cs425-3109.cs.illinois.edu:2232": "vm9.log",
+		"fa24-cs425-3110.cs.illinois.edu:2232": "vm10.log",
 	}
 
 	// Wait for the user to input commands
