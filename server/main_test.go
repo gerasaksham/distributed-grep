@@ -17,16 +17,16 @@ var logPatterns = map[string]string{
 }
 
 var fileMap = map[string]string{
-	"fa24-cs425-3101.cs.illinois.edu": "vm1_test.log",
-	"fa24-cs425-3102.cs.illinois.edu": "vm2_test.log",
-	"fa24-cs425-3103.cs.illinois.edu": "vm3_test.log",
-	"fa24-cs425-3104.cs.illinois.edu": "vm4_test.log",
-	"fa24-cs425-3105.cs.illinois.edu": "vm5_test.log",
-	"fa24-cs425-3106.cs.illinois.edu": "vm6_test.log",
-	"fa24-cs425-3107.cs.illinois.edu": "vm7_test.log",
-	"fa24-cs425-3108.cs.illinois.edu": "vm8_test.log",
-	"fa24-cs425-3109.cs.illinois.edu": "vm9_test.log",
-	"fa24-cs425-3110.cs.illinois.edu": "vm10_test.log",
+	"fa24-cs425-3101.cs.illinois.edu:2232": "vm1_test.log",
+	"fa24-cs425-3102.cs.illinois.edu:2232": "vm2_test.log",
+	"fa24-cs425-3103.cs.illinois.edu:2232": "vm3_test.log",
+	"fa24-cs425-3104.cs.illinois.edu:2232": "vm4_test.log",
+	"fa24-cs425-3105.cs.illinois.edu:2232": "vm5_test.log",
+	"fa24-cs425-3106.cs.illinois.edu:2232": "vm6_test.log",
+	"fa24-cs425-3107.cs.illinois.edu:2232": "vm7_test.log",
+	"fa24-cs425-3108.cs.illinois.edu:2232": "vm8_test.log",
+	"fa24-cs425-3109.cs.illinois.edu:2232": "vm9_test.log",
+	"fa24-cs425-3110.cs.illinois.edu:2232": "vm10_test.log",
 }
 
 func createPattern(logType string, tmp int) string {
