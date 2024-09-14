@@ -127,8 +127,16 @@ func connectAndGrep(serverAddr string, input string, results chan<- GrepReply, w
 func (fs *FileServer) GrepMultipleServers(req *string, filenameMap *map[string]string, reply *string) (error, int) {
 	// List of other servers to send grep requests
 	servers := []string{
-		"localhost:2232", // Second server address
-		"localhost:2233", // Third server address
+		"fa24-cs425-3101.cs.illinois.edu",
+		"fa24-cs425-3102.cs.illinois.edu",
+		"fa24-cs425-3103.cs.illinois.edu",
+		"fa24-cs425-3104.cs.illinois.edu",
+		"fa24-cs425-3105.cs.illinois.edu",
+		"fa24-cs425-3106.cs.illinois.edu",
+		"fa24-cs425-3107.cs.illinois.edu",
+		"fa24-cs425-3108.cs.illinois.edu",
+		"fa24-cs425-3109.cs.illinois.edu",
+		"fa24-cs425-3110.cs.illinois.edu",
 	}
 
 	// Channel to collect results from all servers
@@ -179,8 +187,16 @@ func main() {
 	}()
 
 	filenameMap := map[string]string{
-		"localhost:2232": "vm2.log",
-		"localhost:2233": "vm1.log",
+		"fa24-cs425-3101.cs.illinois.edu": "vm1.log",
+		"fa24-cs425-3102.cs.illinois.edu": "vm2.log",
+		"fa24-cs425-3103.cs.illinois.edu": "vm3.log",
+		"fa24-cs425-3104.cs.illinois.edu": "vm4.log",
+		"fa24-cs425-3105.cs.illinois.edu": "vm5.log",
+		"fa24-cs425-3106.cs.illinois.edu": "vm6.log",
+		"fa24-cs425-3107.cs.illinois.edu": "vm7.log",
+		"fa24-cs425-3108.cs.illinois.edu": "vm8.log",
+		"fa24-cs425-3109.cs.illinois.edu": "vm9.log",
+		"fa24-cs425-3110.cs.illinois.edu": "vm10.log",
 	}
 
 	// Wait for the user to input commands

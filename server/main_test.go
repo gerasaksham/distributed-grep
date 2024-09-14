@@ -17,16 +17,16 @@ var logPatterns = map[string]string{
 }
 
 var fileMap = map[string]string{
-	"server1": "vm1_test.log",
-	// "server2":  "vm2_test.log",
-	// "server3":  "vm3_test.log",
-	// "server4":  "vm4_test.log",
-	// "server5":  "vm5_test.log",
-	// "server6":  "vm6_test.log",
-	// "server7":  "vm7_test.log",
-	// "server8":  "vm8_test.log",
-	// "server9":  "vm9_test.log",
-	"server10": "vm10_test.log",
+	"fa24-cs425-3101.cs.illinois.edu": "vm1_test.log",
+	"fa24-cs425-3102.cs.illinois.edu": "vm2_test.log",
+	"fa24-cs425-3103.cs.illinois.edu": "vm3_test.log",
+	"fa24-cs425-3104.cs.illinois.edu": "vm4_test.log",
+	"fa24-cs425-3105.cs.illinois.edu": "vm5_test.log",
+	"fa24-cs425-3106.cs.illinois.edu": "vm6_test.log",
+	"fa24-cs425-3107.cs.illinois.edu": "vm7_test.log",
+	"fa24-cs425-3108.cs.illinois.edu": "vm8_test.log",
+	"fa24-cs425-3109.cs.illinois.edu": "vm9_test.log",
+	"fa24-cs425-3110.cs.illinois.edu": "vm10_test.log",
 }
 
 func createPattern(logType string, tmp int) string {
@@ -82,7 +82,7 @@ func createTestLogFiles() map[string]int {
 	}
 	for server, filename := range fileMap {
 		content, countMap := createTestLog()
-		if server == "server10" {
+		if server == "fa24-cs425-3110.cs.illinois.edu" {
 			content += createPattern("CRITICAL", 1)
 			countMap["CRITICAL"] = 1
 		}
