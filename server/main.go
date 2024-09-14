@@ -36,6 +36,7 @@ func (fs *FileServer) GrepFile(req *string, reply *GrepReply) error {
 		return errors.New("non-grep command not supported")
 	} else {
 		args := inputSplit[1:]
+		args = append([]string{"-H"}, args...)
 		cmd := exec.Command("grep", args...)
 		out, err := cmd.CombinedOutput()
 		if err != nil {

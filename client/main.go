@@ -36,6 +36,7 @@ func (fs *FileServer) GrepFile(req *string, reply *GrepReply) error {
 		return errors.New("non-grep command not supported")
 	} else {
 		args := inputSplit[1:]
+		args = append([]string{"-H"}, args...)
 		cmd := exec.Command("grep", args...)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
@@ -83,10 +84,9 @@ func connectAndGrep(serverAddr string, input string, results chan<- GrepReply, w
 }
 
 func (fs *FileServer) GrepMultipleServers(req *string, reply *string) error {
-	// List of other servers to send grep requests
 	servers := []string{
-		"localhost:2232", // Second server address
-		"localhost:2233", // Third server address
+		"localhost:2232",
+		"localhost:2233",
 	}
 
 	// Channel to collect results from all servers
