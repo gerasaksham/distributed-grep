@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"time"
 )
 
 type FileServer struct{}
@@ -207,13 +208,18 @@ func main() {
 		input = strings.TrimSpace(input)
 		if input != "" {
 			var grepReply string
-
 			// Call the GrepMultipleServers function to dispatch requests to other servers
+
+			startTime := time.Now()
+
 			err, _ := fileServer.GrepMultipleServers(&input, &filenameMap, &grepReply)
+
+			elapsedTime := time.Since(startTime)
 			if err != nil {
 				fmt.Println("Error:", err)
 			} else {
 				fmt.Println(grepReply)
+				fmt.Println("Time taken:", elapsedTime)
 			}
 		}
 	}
