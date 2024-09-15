@@ -81,7 +81,7 @@ func (fs *FileServer) GrepFile(req *string, reply *GrepReply) error {
 func connectAndGrep(serverAddr string, input string, results chan<- GrepReply, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	conn, err := net.DialTimeout("tcp", serverAddr, 3*time.Second)
+	conn, err := net.DialTimeout("tcp", serverAddr, 2*time.Second)
 	if err != nil {
 		results <- GrepReply{Output: fmt.Sprintf("Failed to connect to server %s with error: %v", serverAddr, err)}
 		return
