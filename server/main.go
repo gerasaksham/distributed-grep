@@ -108,12 +108,12 @@ func (fs *FileServer) GrepMultipleServers(req *string, filenameMap *map[string]s
 		"fa24-cs425-3102.cs.illinois.edu:2232",
 		"fa24-cs425-3103.cs.illinois.edu:2232",
 		"fa24-cs425-3104.cs.illinois.edu:2232",
-		"fa24-cs425-3105.cs.illinois.edu:2232",
-		"fa24-cs425-3106.cs.illinois.edu:2232",
-		"fa24-cs425-3107.cs.illinois.edu:2232",
-		"fa24-cs425-3108.cs.illinois.edu:2232",
-		"fa24-cs425-3109.cs.illinois.edu:2232",
-		"fa24-cs425-3110.cs.illinois.edu:2232",
+		// "fa24-cs425-3105.cs.illinois.edu:2232",
+		// "fa24-cs425-3106.cs.illinois.edu:2232",
+		// "fa24-cs425-3107.cs.illinois.edu:2232",
+		// "fa24-cs425-3108.cs.illinois.edu:2232",
+		// "fa24-cs425-3109.cs.illinois.edu:2232",
+		// "fa24-cs425-3110.cs.illinois.edu:2232",
 	}
 
 	results := make(chan GrepReply, len(servers))
@@ -165,12 +165,12 @@ func main() {
 		"fa24-cs425-3102.cs.illinois.edu:2232": "vm2.log",
 		"fa24-cs425-3103.cs.illinois.edu:2232": "vm3.log",
 		"fa24-cs425-3104.cs.illinois.edu:2232": "vm4.log",
-		"fa24-cs425-3105.cs.illinois.edu:2232": "vm5.log",
-		"fa24-cs425-3106.cs.illinois.edu:2232": "vm6.log",
-		"fa24-cs425-3107.cs.illinois.edu:2232": "vm7.log",
-		"fa24-cs425-3108.cs.illinois.edu:2232": "vm8.log",
-		"fa24-cs425-3109.cs.illinois.edu:2232": "vm9.log",
-		"fa24-cs425-3110.cs.illinois.edu:2232": "vm10.log",
+		// "fa24-cs425-3105.cs.illinois.edu:2232": "vm5.log",
+		// "fa24-cs425-3106.cs.illinois.edu:2232": "vm6.log",
+		// "fa24-cs425-3107.cs.illinois.edu:2232": "vm7.log",
+		// "fa24-cs425-3108.cs.illinois.edu:2232": "vm8.log",
+		// "fa24-cs425-3109.cs.illinois.edu:2232": "vm9.log",
+		// "fa24-cs425-3110.cs.illinois.edu:2232": "vm10.log",
 	}
 
 	reader := bufio.NewReader(os.Stdin)
