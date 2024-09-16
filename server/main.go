@@ -69,7 +69,7 @@ func (fs *FileServer) GrepFile(req *string, reply *GrepReply) error {
 			return fmt.Errorf("error executing grep: %v", err)
 		}
 		lineCount := countLines(string(out))
-		reply.Output = string(out) + "\nNumber of lines: " + fmt.Sprint(lineCount) // Appending lineCount
+		reply.Output = string(out) //+ "\nNumber of lines: " + fmt.Sprint(lineCount) // Appending lineCount
 		reply.Linecount = lineCount
 		return nil
 	}
@@ -93,6 +93,8 @@ func connectAndGrep(serverAddr string, input string, results chan<- GrepReply, w
 		results <- GrepReply{Output: fmt.Sprintf("Error executing grep on server %s: %v", serverAddr, err)} // Send the error to the channel
 		return
 	}
+
+	grepReply.Output += fmt.Sprintf("\nNumber of matching lines for server %s: %d", serverAddr, grepReply.Linecount)
 
 	results <- GrepReply{
 		Output:    fmt.Sprintf("Server: %s\n%s", serverAddr, grepReply.Output),
