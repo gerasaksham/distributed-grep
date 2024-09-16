@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math/rand"
+	"net"
 	"net/rpc"
 	"testing"
 	"time"
@@ -12,10 +13,11 @@ var logPatterns = map[string]string{
 	"INFO":     "Func executed successfully", // Frequent Pattern
 	"ERROR":    "Func failed",                // Rare Pattern
 	"DEBUG":    "Debugging info",
-	"CRITICAL": "Critical error", // One log
+	"CRITICAL": "Critical error", // Extrmely rare log
 	"WARNING":  "Warning",        // Somewhat Frequent
 }
 
+// Map of server to filename
 var fileMap = map[string]string{
 	"fa24-cs425-3101.cs.illinois.edu:2232": "vm1_test.log",
 	"fa24-cs425-3102.cs.illinois.edu:2232": "vm2_test.log",
@@ -29,6 +31,7 @@ var fileMap = map[string]string{
 	"fa24-cs425-3110.cs.illinois.edu:2232": "vm10_test.log",
 }
 
+// this method creates the different log patterns
 func createPattern(logType string, tmp int) string {
 	content := ""
 	for i := 0; i < tmp; i++ {
@@ -37,6 +40,7 @@ func createPattern(logType string, tmp int) string {
 	return content
 }
 
+// this method generates the test log for each query pattern and returns count of pattern in map
 func createTestLog() (string, map[string]int) {
 	rand.Seed(time.Now().UnixNano())
 	content := ""
@@ -68,11 +72,11 @@ func createTestLog() (string, map[string]int) {
 
 }
 
+// create test log files with different patterns on each server
 func createTestLogFiles() map[string]int {
-	var client *rpc.Client
-	var err error
 	var reply string
 
+	// Map to store the count of each log pattern for verification
 	fileCountMap := map[string]int{
 		"INFO":     0,
 		"ERROR":    0,
@@ -82,16 +86,17 @@ func createTestLogFiles() map[string]int {
 	}
 	for server, filename := range fileMap {
 		content, countMap := createTestLog()
-		if server == "fa24-cs425-3110.cs.illinois.edu" {
+		if server == "fa24-cs425-3110.cs.illinois.edu" { // Handle extremely rare log case
 			content += createPattern("CRITICAL", 1)
 			countMap["CRITICAL"] = 1
 		}
 
-		client, err = rpc.DialHTTP("tcp", server)
+		conn, err := net.DialTimeout("tcp", server, 2*time.Second)
 		if err != nil {
 			fmt.Printf("Failed to connect to server %s with error: %v\n", server, err)
 			continue
 		}
+		client := rpc.NewClient(conn)
 		defer client.Close()
 
 		err = client.Call("FileServer.WriteFile", &FileRequest{Filename: filename, Content: content}, &reply)
@@ -105,6 +110,7 @@ func createTestLogFiles() map[string]int {
 	return fileCountMap
 }
 
+// Function to test the grep method on multiple servers concurrently wiht different query patterns
 func TestGrepMultipleServers(t *testing.T) {
 	fileCountMap := createTestLogFiles()
 	var fileServer FileServer
@@ -165,15 +171,5 @@ func TestGrepMultipleServers(t *testing.T) {
 		t.Errorf("Expected %d, got %d", fileCountMap["CRITICAL"], totalLineCount)
 	}
 	fmt.Println("CRITICAL:", totalLineCount)
-
-	// // Remove test log files
-	// for server, filename := range fileMap {
-	// 	err := fileServer.DeleteFile(&filename, &reply)
-	// 	if err != nil {
-	// 		fmt.Println("Error deleting file:", err)
-	// 	} else {
-	// 		fmt.Printf("Deleted test log file for %s\n", server)
-	// 	}
-	// }
 
 }
