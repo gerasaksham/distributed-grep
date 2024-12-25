@@ -1,1 +1,1 @@
-# cs425_mp1
+# Distributed grep Querier
